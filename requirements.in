@@ -1,0 +1,6 @@
+fastapi[standard]
+pymongo
+python-jose
+passlib[argon2]
+sqlalchemy
+alembic
