@@ -4,3 +4,6 @@ python-jose
 passlib[argon2]
 sqlalchemy
 alembic
+xmltodict
+requests
+tqdm

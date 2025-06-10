@@ -1,6 +1,8 @@
 from pymongo import UpdateOne
 from .mongoConnection import get_connection
 import os
+import json
+from tqdm import tqdm
 
 def insert_bulk(listedictId,listeValue,valueName,client,dbName,collectionName):
     """Une fonction d'insertion en bulk qui prend en parametres deux listes la premiere un dictionaire qui contient les ids et le deuxieme les valeurs a mettre dans le field valuename"""
@@ -31,3 +33,22 @@ def find_dual(collection,filter={},projection={},client=None):
         client.close()
         return retour
     return cursor
+
+def insert_folder_preproc(foldername,basefolder,database,preprocess_func=None):
+    with get_connection() as client:
+        collection = client[database][foldername]
+        for filename in tqdm(os.listdir(basefolder),desc="Inserting .json file"):
+              if filename.endswith(".json"):
+                file_path = os.path.join(basefolder, filename)
+                with open(file_path, 'r', encoding='utf-8') as file:
+                    try:
+                        data = json.load(file)
+                        if preprocess_func:
+                            data = preprocess_func(data)
+
+                        if isinstance(data, list):
+                            collection.insert_many(data)
+                        else:
+                            collection.insert_one(data)
+                    except json.JSONDecodeError as e:
+                        print(f"Erreur lors du decodage de {filename}: {e}")
