@@ -12,9 +12,11 @@ def get_election(codedepartement,codecirconscription):
         codecirconscriptionclean=str(codecirconscription)
     taillecircons = len(codecirconscriptionclean)
     if(taillecircons>2):
+        print(f"Erreur dans la ciconscription : {codecirconscriptionclean}")
         #Bug trop long
         return
     if(taillecircons<1):
+        print(f"Erreur dans la ciconscription : {codecirconscriptionclean}")
         #Bug trop court
         return
     if(taillecircons==1):
@@ -22,13 +24,20 @@ def get_election(codedepartement,codecirconscription):
         codecirconscriptionclean="0"+codecirconscriptionclean
 
     codecomplet=codedepartement+codecirconscriptionclean
-    url=baseurl+rid
-    params = {parametercirc:codecomplet}
-    requete = requests.get(url,parameters=params)
+    url=baseurl+rid+"/data/"
+    parameters = {parametercirc:codecomplet}
+    requete = requests.get(url,params=parameters)
 
     if(requete.status_code==200):
-        return requete.content
+        return requete.json()
     else:
+        print(f"Erreur dans la requete mauvais status code : {requete.status_code}")
         #Bug sur la connection
         return
-    
+
+def get_formated(retour):
+    if(retour["data"]==None):
+        return
+    if(retour["data"][0]==None):
+        return
+    return retour["data"][0]
