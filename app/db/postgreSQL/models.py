@@ -13,7 +13,6 @@ activite_hopol_association = Table(
 class HommePolitique(Base):
     __tablename__ = "hommepolitique"
     hopol_id = Column(String, primary_key=True)
-    role_actuel=Column(String)#Est ce que c'est un député ou un senateur
     prenom=Column(String)
     nom=Column(String)
     date_naissance = Column(Date)
@@ -26,8 +25,6 @@ class HommePolitique(Base):
     secondary=activite_hopol_association,#Precise pour l'orm comment trouvé le activité (un model Activite)
     back_populates="hommes_politiques"
     )
-    role = relationship("Role",back_populates="hopol")
-    appart_parti = relationship("AppartenanceParti",back_populates="hopol")
 #L'appartenance a un organe parlementaire
 class Organe(Base):
     __tablename__ = "organe"
@@ -59,31 +56,7 @@ class OrganeRelation(Base):
     hopol_id = Column(String,ForeignKey("hommepolitique.hopol_id"),primary_key=True)
     date_debut=Column(Date)
     date_fin=Column(Date)
+    access_id=Column(String,comment="Une clef vers l'information d'acces au poste dans une base mongoDB")
+    access_type=Column(String,comment="De quel facon il a acceder a cette organe")
     hopol = relationship("HommePolitique",back_populates="organes")
     organe = relationship("Organe",back_populates="membres")
-
-#Est ce que c'est un député ou un senateur , quand est qu'il a été élu etc
-class Role(Base):
-    __tablename__="role"
-    id=Column(Integer,primary_key=True)
-    hopol_id = Column(String,ForeignKey("hommepolitique.hopol_id"))
-    role_name = Column(String)
-    date_election=Column(Date)
-    id_election=Column(String)#Un id vers la base mongoDB qui contient l'election 
-    hopol = relationship("HommePolitique",back_populates="role")
-
-class PartiPolitique(Base):
-    __tablename__="partipolitique"
-    id=Column(String,primary_key=True)
-    nom = Column(String)
-    date_creation = Column(Date)
-    membres = relationship("AppartenanceParti",back_populates="parti")
-
-class AppartenanceParti(Base):
-    __tablename__="appartenanceparti"
-    hopol_id = Column(String,ForeignKey("hommepolitique.hopol_id"),primary_key=True)
-    partie_id=Column(String,ForeignKey("partipolitique.id"),primary_key=True)
-    date_appartenance = Column(Date)
-    date_quitte = Column(Date)
-    hopol = relationship("HommePolitique",back_populates="appart_parti")
-    parti = relationship("PartiPolitique",back_populates="membres")

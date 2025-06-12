@@ -6,7 +6,7 @@ load_dotenv()
 from db.mongoDB import mongoConnection
 from db.postgreSQL import db_connection
 from db.postgreSQL.utils import upsert_orm
-from db.postgreSQL import HommePolitique , PartiPolitique , Organe,OrganeRelation
+from db.postgreSQL import HommePolitique , Organe,OrganeRelation
 from tqdm import tqdm
 from datetime import datetime
 from pymongo import UpdateOne
@@ -32,12 +32,14 @@ def start_import_hopol():
             print(f"Erreur dans le traitement de la base de donnée d'import par de table acteur : {collection_list}")
             return #A completer
 
+
+
+
 def import_hopol(collection):
     batch_done=[]
     query = {"insertion_traite":{"$exists":False}}
     checkpointQuant = 10
     current = 0
-
     for hopol in tqdm(collection.find(query)):
         insert_hopol(hopol)
         currentDate = datetime.now()
@@ -50,22 +52,19 @@ def import_hopol(collection):
         current+=1
 
 
-def insert_hopol(hopol):
+def create_hopol(hopol):
     ajout = HommePolitique()
     ajout.hopol_id = hopol["_id"]
     #A poser la question gestion d'erreur comment le gerer
     ident = hopol["etatCivil"]["ident"]
     ajout.nom = ident["nom"]
     ajout.prenom = ident["prenom"]
-
     naissance = hopol["etatCivil"]["infoNaissance"]
     ajout.date_naissance = get_date(naissance["dateNais"])
-    ajout.role_actuel="depute"
     
     ajout.profession_cat=hopol["profession"]["socProcINSEE"]["catSocPro"]
     ajout.profession=hopol["profession"]["libelleCourant"]
-    
-    #TODO link avec les organisation , les parties politique ect
+    return ajout
 
 def start_insert_organe():
     with mongoConnection.get_connection() as client:
@@ -73,10 +72,47 @@ def start_insert_organe():
         collection_list = database.list_collection_names()
         if "organe" in collection_list:
             collection = database["organe"]
-            insert_organes(collection)
+            #insert_organes(collection)
+            import_gen(collection,Organe,"insertion_traite",["organe_id"],create_organe)
         else:
             print(f"Erreur dans le traitement de la base de donnée d'import par de table organe : {collection_list}")
             return #A completer
+
+def import_gen(collection,model,nameOperation,conflictCol,objCreation):
+    """Une fonction generique pour l'insertion en bulk d'une collection mongodb vers une db postgreSQL"""
+    batch_done=[]
+    query = {nameOperation:{"$exists":False}}
+    #La taille des checkpoints
+    checkpointQuant = 20
+    current = 1
+    #Les deux liste d'objet possible : Partie politique ou autre
+    objAjout=[]
+    #on se connecte a la base de donnée
+    with db_connection.get_session() as session:
+        for data in tqdm(collection.find(query)):
+            #La fonction ajoute les objets dans les bonnes listes
+            objCreation(data,objAjout)
+            currentDate = datetime.now()
+            #On creer l'update qui indique qu'on a traité l'information
+            batch_done.append(UpdateOne(
+            {"_id": data["_id"]},
+            {"$set": {nameOperation: {"date":currentDate}}}))
+
+            #Si on a atteint la taille de batch on écrit dans les deux db
+            if(len(batch_done)>checkpointQuant):
+                do_insert(collection, model, nameOperation, conflictCol, batch_done, current, objAjout, session)
+            current+=1
+        if(len(batch_done)>0):
+            do_insert(collection, model, nameOperation, conflictCol, batch_done, current, objAjout, session)
+
+def do_insert(collection, model, nameOperation, conflictCol, batch_done, current, objAjout, session):
+    upsert_orm(session,model,objAjout,conflictCol)
+    collection.bulk_write(batch_done)
+    objAjout=[]
+    batch_done=[]
+    tqdm.write(f"Checkpoint effectuer pour {model.__name__} pour {nameOperation} a la {current} operation")
+        
+
 
 def insert_organes(collection):
     """Une fois qu'on a la collection des organes on va extraire les parties politique et l'assemblee"""
@@ -87,14 +123,12 @@ def insert_organes(collection):
     checkpointQuant = 20
     current = 1
     #Les deux liste d'objet possible : Partie politique ou autre
-    parpolAjout=[]
-    otherAjout=[]
-
+    organeAjout=[]
     #on se connecte a la base de donnée
     with db_connection.get_session() as session:
         for data in tqdm(collection.find(query)):
             #La fonction ajoute les objets dans les bonnes listes
-            create_organe(data,parpolAjout,otherAjout)
+            organeAjout.append(create_organe(data))
             currentDate = datetime.now()
             #On creer l'update qui indique qu'on a traité l'information
             batch_done.append(UpdateOne(
@@ -103,34 +137,22 @@ def insert_organes(collection):
 
             #Si on a atteint la taille de batch on écrit dans les deux db
             if(len(batch_done)>checkpointQuant):
-                upsert_orm(session,PartiPolitique,parpolAjout,["id"])
-                upsert_orm(session,Organe,otherAjout,["organe_id"])
+                upsert_orm(session,Organe,organeAjout,["organe_id"])
                 collection.bulk_write(batch_done)
-                parpolAjout=[]
-                otherAjout=[]
+                organeAjout=[]
                 batch_done=[]
                 tqdm.write(f"Checkpoint effectuer a la {current} operation")
             current+=1
 
-def create_organe(organeinfo,listParpol,listother):
-    codetype=organeinfo["codeType"]
-    if(codetype=="ASSEMBLEE"):#Il s'agit de l'organe qui represente l'assemblé et est donc pas traité
-        pass
-    elif(codetype=="PARPOL"):#Le partie politique il est traité differement
-        organe = PartiPolitique()
-        organe.date_creation = get_date(organeinfo["viMoDe"]["dateDebut"])
-        organe.nom = organeinfo["libelle"]
-        organe.id = organeinfo["_id"]
-        listParpol.append(organe)
-    else:
-        organe = Organe()
-        organe.organe_id=organeinfo["_id"]
-        organe.code_type = organeinfo["codeType"]
-        organe.type = organeinfo["type"]
-        organe.nom = organeinfo["libelle"]
-        organe.debut = organeinfo["viMoDe"]["dateDebut"]
-        organe.fin = organeinfo["viMoDe"]["dateFin"]
-        listother.append(organe)
+def create_organe(organeinfo,listajout):
+    organe = Organe()
+    organe.organe_id=organeinfo["_id"]
+    organe.code_type = organeinfo["codeType"]
+    organe.type = organeinfo["type"]
+    organe.nom = organeinfo["libelle"]
+    organe.debut = get_date(organeinfo["viMoDe"]["dateDebut"])
+    organe.fin = get_date(organeinfo["viMoDe"]["dateFin"])
+    listajout.append(organe)
     
 if __name__=="__main__":
     start_insert_organe()

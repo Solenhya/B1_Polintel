@@ -1,1 +1,1 @@
-from .models import HommePolitique, PartiPolitique, Organe, OrganeRelation, AppartenanceParti, Role, Activite
+from .models import HommePolitique, Organe, OrganeRelation, Activite
