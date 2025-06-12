@@ -1,6 +1,6 @@
-from ..db.mongoDB.mongoConnection import get_connection
-from ..db.mongoDB.mongoOperation import find_dual
-from .security import get_password_hash , verify_password
+from db.mongoDB.mongoConnection import get_connection
+from db.mongoDB.mongoOperation import find_dual
+from userManagement.security import get_password_hash , verify_password
 import os
 from fastapi import HTTPException, status
 

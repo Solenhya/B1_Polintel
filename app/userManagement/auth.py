@@ -1,8 +1,8 @@
 from fastapi import HTTPException , status , Depends ,Request
 from fastapi.security import OAuth2PasswordRequestForm,HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.responses import RedirectResponse
-from .security import verify_password, create_access_token
-from .userAccess import get_user
+from userManagement.security import verify_password, create_access_token
+from userManagement.userAccess import get_user
 from jose import JWTError,jwt
 from typing import Optional
 import os

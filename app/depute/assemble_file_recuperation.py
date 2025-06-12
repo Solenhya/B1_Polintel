@@ -19,7 +19,7 @@ URL_VOTE="https://data.assemblee-nationale.fr/static/openData/repository/17/loi/
 divBox="feature-box"
 deputefolder="depute_files"
 votefolder="vote"
-
+dbName = os.getenv("DBNAME_DEPUTE_IMPORT")
 def download_file(url,name):
     response = requests.get(url)
     with open(name, "wb") as f:
@@ -74,8 +74,8 @@ def insert_v2(dbName,folderName):
     json_import.import_json_folder(folderPath,dbName)
 
 if __name__ =="__main__":
-    #download_brut(URL_DEPUTE_LIST,deputefolder)
-    #insert_list(deputefolder,"depute")
-    #download_file(URL_COLAB_LIST,"depute_collab.csv")
-    insert_v2("depute",deputefolder)
-    insert_v2("depute",votefolder)
+    download_brut(URL_DEPUTE_LIST,deputefolder)
+    download_brut(URL_VOTE,votefolder)
+    download_file(URL_COLAB_LIST,"depute_collab.csv")
+    insert_v2(dbName,deputefolder)
+    insert_v2(dbName,votefolder)

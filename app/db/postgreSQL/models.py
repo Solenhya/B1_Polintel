@@ -1,6 +1,13 @@
-from sqlalchemy import Column, Integer, String, DateTime,ForeignKey,Date
+from sqlalchemy import Column, Integer, String, DateTime,ForeignKey,Date , Table
 from sqlalchemy.orm import relationship
 from .database import Base
+
+activite_hopol_association = Table(
+    "activite_hopol_association",
+    Base.metadata,
+    Column("hopol_id", String, ForeignKey("hommepolitique.hopol_id")),
+    Column("activite_id", String, ForeignKey("activite.activite_id"))
+)
 
 #La définition des table postgre via sqlalchemy models
 class HommePolitique(Base):
@@ -13,7 +20,12 @@ class HommePolitique(Base):
     profession=Column(String)
     profession_cat=Column(String)
     organes = relationship("OrganeRelation", back_populates="hopol")
-    activites = relationship("Activite",back_populates="hopol")
+    #Ajout de la table de liaison n-n
+    activites = relationship(
+    "Activite",
+    secondary=activite_hopol_association,#Precise pour l'orm comment trouvé le activité (un model Activite)
+    back_populates="hommes_politiques"
+    )
     role = relationship("Role",back_populates="hopol")
     appart_parti = relationship("AppartenanceParti",back_populates="hopol")
 #L'appartenance a un organe parlementaire
@@ -34,8 +46,12 @@ class Activite(Base):
     nom=Column(String)
     date=Column(Date)
     type=Column(String)
-    hopol_id = Column(String,ForeignKey("hommepolitique.hopol_id"))
-    hopol = relationship("HommePolitique",back_populates="activites")
+    hommes_politiques = relationship(
+    "HommePolitique",
+    secondary=activite_hopol_association,
+    back_populates="activites"
+    )
+
 
 class OrganeRelation(Base):
     __tablename__ = "organe_relation"
@@ -61,7 +77,7 @@ class PartiPolitique(Base):
     id=Column(String,primary_key=True)
     nom = Column(String)
     date_creation = Column(Date)
-    membres = relationship("AppartenancePartie",back_populates="parti")
+    membres = relationship("AppartenanceParti",back_populates="parti")
 
 class AppartenanceParti(Base):
     __tablename__="appartenanceparti"
