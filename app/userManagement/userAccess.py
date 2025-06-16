@@ -1,9 +1,9 @@
-from ..db.mongoDB.mongoConnection import get_connection
-from ..db.mongoDB.mongoOperation import find_dual
-from .security import get_password_hash , verify_password
+from db.mongoDB.mongoConnection import get_connection
+from db.mongoDB.mongoOperation import find_dual
+from userManagement.security import get_password_hash , verify_password
 import os
 from fastapi import HTTPException, status
-
+userDBName = os.getenv("MONGO_USER_DB")
 class UserAlreadyExistsException(HTTPException):
     def __init__(self, detail: str = "A user with this username already exists"):
         super().__init__(status_code=status.HTTP_409_CONFLICT, detail=detail)
@@ -17,15 +17,30 @@ def sign_user(useName,password):
     InsertUser(userInfo)
 
 def get_user(useName):  
-    found = find_dual("users",filter={"username":useName})
+    found = find_dual("users",userDBName,filter={"username":useName})
     if(len(found)>0):
         return found[0]
     
 def get_users():
-    found = find_dual("users",projection={"username":1,"roles":1})
+    found = find_dual("users",userDBName,projection={"username":1,"roles":1})
     return found
 
 def InsertUser(userInfo):
     with get_connection() as client:
-        databaseName = os.getenv("MONGO_DBNAME")
-        client[databaseName]["users"].insert_one(userInfo)
+        client[userDBName]["users"].insert_one(userInfo)
+
+def add_role_user(userName,role):
+    with get_connection() as client:
+        collection = client[userDBName]["users"]
+        collection.update_one(
+        {"username": userName},
+        {"$addToSet": {"roles": role}}
+        )
+
+def remove_role_user(userName,role):
+    with get_connection() as client:
+        collection = client[userDBName]["users"]
+        collection.update_one(
+        {"username": userName},
+        {"$pull": {"roles": role}}
+        )

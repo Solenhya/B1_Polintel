@@ -175,3 +175,5 @@ cython_debug/
 
 #Ignore les fichiers .json
 *.json
+#Ignore la partie exploration
+exploration/

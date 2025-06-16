@@ -18,7 +18,7 @@ def get_session():
 
 #Fonction a déprécier
 def get_connection():
-    """maje la fonction de connexion à la base de données"""
+    """maje la fonction de connexion à la base de données DEPRECATED"""
     # Test de la connexion à la base de données
     
     try:

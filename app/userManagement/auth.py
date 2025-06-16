@@ -1,8 +1,8 @@
 from fastapi import HTTPException , status , Depends ,Request
 from fastapi.security import OAuth2PasswordRequestForm,HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.responses import RedirectResponse
-from .security import verify_password, create_access_token
-from .userAccess import get_user
+from userManagement.security import verify_password, create_access_token
+from userManagement.userAccess import get_user
 from jose import JWTError,jwt
 from typing import Optional
 import os
@@ -25,7 +25,7 @@ class CredentialsException(HTTPException):
 
 
 def get_current_user(request:Request):
-    token = request.cookies.get("token")
+    token = get_token(request)
     # Check if the token is empty or None
     if not token:
         raise CredentialsException(detail="Token is missing or empty")
@@ -38,14 +38,21 @@ def get_current_user(request:Request):
         return username
     except JWTError as e:
         raise CredentialsException(detail=f"JWT decoding error: {str(e)}")
-    
+
+#Une methode extraite pour pouvoir etre modifier
+def get_token(request:Request):
+    #retour = request.cookies.get("token")
+    retour = request.headers.get("token")
+    return retour
+
+
 def get_user_data(request:Request):
-    token = request.cookies.get("token")
+    token = get_token(request)
     if not token:
         response = RedirectResponse(url="/login",status_code=401)
         return response
         raise CredentialsException(detail="Token is missing or empty")
-    # Use JWT decoding and validation logic
+    # Utilise le jwt pour récuperer les données utilisateur
     try:
         user_data = jwt.decode(token, os.getenv("SECRET_KEY"), algorithms=[os.getenv("ALGORITHM")])
         if user_data is None:
