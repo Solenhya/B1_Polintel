@@ -52,7 +52,7 @@ def get_user_data(request:Request):
         response = RedirectResponse(url="/login",status_code=401)
         return response
         raise CredentialsException(detail="Token is missing or empty")
-    # Use JWT decoding and validation logic
+    # Utilise le jwt pour récuperer les données utilisateur
     try:
         user_data = jwt.decode(token, os.getenv("SECRET_KEY"), algorithms=[os.getenv("ALGORITHM")])
         if user_data is None:

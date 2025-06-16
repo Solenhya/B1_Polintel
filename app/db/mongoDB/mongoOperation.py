@@ -3,6 +3,7 @@ from .mongoConnection import get_connection
 import os
 import json
 from tqdm import tqdm
+from exceptions.customExceptions import DatabaseError
 
 def insert_bulk(listedictId,listeValue,valueName,client,dbName,collectionName):
     """Une fonction d'insertion en bulk qui prend en parametres deux listes la premiere un dictionaire qui contient les ids et le deuxieme les valeurs a mettre dans le field valuename"""
@@ -12,7 +13,7 @@ def insert_bulk(listedictId,listeValue,valueName,client,dbName,collectionName):
 
 
     #Give a simplified tool where 
-def find_dual(collection,filter={},projection={},client=None):
+def find_dual(collectionName,dbName,filter={},projection={},client=None):
     """
     Deux comportement si on donne une connection qui est gerer a l'exterieur on renvoie le curseur sinon on renvoie une liste de résultat
     En créant et fermant une connection
@@ -23,9 +24,10 @@ def find_dual(collection,filter={},projection={},client=None):
         close = True
         client = get_connection()
         print("connection creer")
-    dbName = os.getenv("MONGO_DBNAME")
-
-    cursor = client[dbName][collection].find(filter=filter,projection=projection)
+    try:
+        cursor = client[dbName][collectionName].find(filter=filter,projection=projection)
+    except Exception as e:
+        raise DatabaseError(f"Find {filter}",dbName,collectionName,e)
     if(close):
         retour = []
         for i in cursor:

@@ -46,7 +46,8 @@ organeTest = {
   }
 }
 
-
 def testOrgane():
-    organe = create_organe(organeTest)
-    assert isinstance(organe, Organe)
+    listajout = []
+    create_organe(organeTest,listajout)
+    assert isinstance(listajout[0], Organe)
+    assert len(listajout)==1

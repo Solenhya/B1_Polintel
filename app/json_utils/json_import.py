@@ -72,3 +72,4 @@ def import_json_folder(folderpath,database):
         elif len(split)==1:#C'est un dossier on doit donc allez plus loin
             import_json_folder(filepath,database)
     print(f"{len(list_files)} Fichiers traités")
+

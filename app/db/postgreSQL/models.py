@@ -5,8 +5,8 @@ from .database import Base
 activite_hopol_association = Table(
     "activite_hopol_association",
     Base.metadata,
-    Column("hopol_id", String, ForeignKey("hommepolitique.hopol_id")),
-    Column("activite_id", String, ForeignKey("activite.activite_id"))
+    Column("hopol_id", String, ForeignKey("hommepolitique.hopol_id"),primary_key=True),
+    Column("activite_id", String, ForeignKey("activite.activite_id"),primary_key=True)
 )
 
 #La définition des table postgre via sqlalchemy models
@@ -54,9 +54,10 @@ class OrganeRelation(Base):
     __tablename__ = "organe_relation"
     organe_id=Column(String,ForeignKey("organe.organe_id"),primary_key=True)
     hopol_id = Column(String,ForeignKey("hommepolitique.hopol_id"),primary_key=True)
-    date_debut=Column(Date)
+    date_debut=Column(Date,primary_key=True)
     date_fin=Column(Date)
     access_id=Column(String,comment="Une clef vers l'information d'acces au poste dans une base mongoDB")
     access_type=Column(String,comment="De quel facon il a acceder a cette organe")
+    qualite=Column(String,comment="En quel qualité il appartient a l'organisation (membres,président ect)",primary_key=True)
     hopol = relationship("HommePolitique",back_populates="organes")
     organe = relationship("Organe",back_populates="membres")
