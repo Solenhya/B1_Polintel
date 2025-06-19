@@ -1,7 +1,7 @@
 import os,sys
 parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..')) # Remonte jusqu'au dossier parent
 sys.path.append(parent_dir)
-from app.depute.fill_postgre import create_organe , Organe
+from app.depute.depute_organe import create_organe , Organe
 #Gros probleme dans l'import de Organe
 #from app.db.postgreSQL import Organe,PartiPolitique
 

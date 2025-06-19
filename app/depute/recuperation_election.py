@@ -52,6 +52,12 @@ def get_election(codedepartement,codecirconscription):
         return None
 
 def format_departement(departement):
+    if(departement=="099"):
+        #Dans le cas des Francais a l'étranger la désignation n'est pas la meme sur l'api
+        return "ZZ"
+    if(departement=="977"):
+        #Saint bartelemy /Saint martin qui est fait autrement
+        return "ZX"
     return departement.lstrip("0")
 
 def get_formated(retour):
@@ -67,25 +73,29 @@ def get_formated(retour):
     return retour["data"][0]
 
 def process_elections():
+    count = 0
     with db_connection.get_session() as session:
         with mongoConnection.get_connection() as client:
             collectionBase = client[dbName]["organe"]
             collectionFinal=client[dbName]["election"]
             toProcess = select(OrganeRelation,Organe).join(OrganeRelation.organe).where((OrganeRelation.access_id.is_(None)) & (Organe.code_type=="CIRCONSCRIPTION"))
-            results = session.execute(toProcess).scalars() 
+            results = session.execute(toProcess).all() 
             for row in tqdm(results):
-                code = row.organe_id
+                organe_relation , organe = row
+                code = organe_relation.organe_id
                 mongodata = collectionBase.find_one({"_id":code})
                 codeCirconscription = mongodata["numero"]
                 codeDepart = mongodata["lieu"]["departement"]["code"]
                 infoelec = get_formated(get_election(codeDepart,codeCirconscription))
                 if infoelec==None:
-                    print(f"Erreur sur : {row}")
+                    print(f"Erreur sur : {organe_relation.organe_id} nom {organe.nom}")
                     continue
                 infoelec = create_elec_obj(infoelec)
                 collectionFinal.insert_one(infoelec)
-                row.access_id=infoelec["_id"]
+                organe_relation.access_id=infoelec["_id"]
                 session.commit()
+                count+=1
+    return count
 
 def create_elec_obj(elecInfo):
     pattern_full = re.compile(r'\s\d+$')          # Pattern de test de champs candidat

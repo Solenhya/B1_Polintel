@@ -3,6 +3,7 @@ from fastapi.security import OAuth2PasswordRequestForm,HTTPBearer, HTTPAuthoriza
 from fastapi.responses import RedirectResponse
 from userManagement.security import verify_password, create_access_token
 from userManagement.userAccess import get_user
+from exceptions import customExceptions
 from jose import JWTError,jwt
 from typing import Optional
 import os
@@ -10,12 +11,12 @@ import os
 
 security = HTTPBearer()
 
-async def login_for_access_token(form_data: OAuth2PasswordRequestForm):
-    user = get_user(form_data.username)
-    if not user or not verify_password(form_data.password, user["hashed_password"]):
+async def login_for_access_token(username:str,password:str):
+    user = get_user(username)
+    if not user or not verify_password(password, user["hashed_password"]):
         raise HTTPException(status_code=401, detail="Incorrect username or password") 
     # Create and return token
-    access_token = create_access_token(data={"sub": form_data.username,"roles":user["roles"]})
+    access_token = create_access_token(data={"sub": username,"roles":user["roles"]})
     return {"access_token": access_token, "token_type": "bearer"}
 
 # Custom exception for when token is missing or invalid
@@ -49,9 +50,7 @@ def get_token(request:Request):
 def get_user_data(request:Request):
     token = get_token(request)
     if not token:
-        response = RedirectResponse(url="/login",status_code=401)
-        return response
-        raise CredentialsException(detail="Token is missing or empty")
+        raise customExceptions.NoTokenException()
     # Utilise le jwt pour récuperer les données utilisateur
     try:
         user_data = jwt.decode(token, os.getenv("SECRET_KEY"), algorithms=[os.getenv("ALGORITHM")])

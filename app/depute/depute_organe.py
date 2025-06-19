@@ -4,15 +4,10 @@ sys.path.append(project_dir)
 from dotenv import load_dotenv
 load_dotenv()
 from db.mongoDB import mongoConnection
-from db.postgreSQL import db_connection
-from db.postgreSQL.utils import upsert_orm ,upsert
-from db.postgreSQL import HommePolitique , Organe,OrganeRelation , Activite
-from tqdm import tqdm
-from datetime import datetime
-from pymongo import UpdateOne
+from db.postgreSQL import HommePolitique , Organe,OrganeRelation 
 from utils.date_utils import get_date
+from utils.db_import import import_gen , get_count_doc_left , import_gen_single
 import logging
-from depute.recuperation_election import process_elections
 logger = logging.getLogger(__name__)
 
 dbName = os.getenv("MONGO_DBNAME")
@@ -23,11 +18,22 @@ def start_import_hopol():
         collection_list = database.list_collection_names()
         if "acteur" in collection_list:
             collection = database["acteur"]
-            import_gen(collection,HommePolitique,"insertion_traite",["hopol_id"],create_hopol)
-            import_gen(collection,OrganeRelation,"relation_organe",["organe_id","hopol_id","qualite","date_debut"],create_link_organe)
+
+            hopol_total = get_count_doc_left(collection,"insertion_traite")
+            import_gen(collection,HommePolitique,"insertion_traite",["hopol_id"],create_hopol,nomComplet="Insertion des députes",total=hopol_total)
+            hopol_total_bug = get_count_doc_left(collection,"insertion_traite")
+            import_gen(collection,HommePolitique,"insertion_traite",["hopol_id"],create_hopol,nomComplet="Insertion des députes de maniere individuel",total=hopol_total_bug,chunckSize=1)#Fait l'insertion avec le plus petit chunk pour s'assurer d'avoir traiter tout ce qui est possible de traité
+            print("Insertion des députés faites")
+
+            hopolrel_total = get_count_doc_left(collection,"relation_organe")#Pour l'instant liste uniquement les documents et pas les mandats individuel
+            import_gen(collection,OrganeRelation,"relation_organe",["organe_id","hopol_id","qualite","date_debut"],create_link_organe,nomComplet="Insertion des mandats",total=hopolrel_total,chunckSize=1)
+            hopolrel_total_bug = get_count_doc_left(collection,"relation_organe")#Pour l'instant liste uniquement les documents et pas les mandats individuel
+            import_gen_single(collection,"relation_organe",create_link_organe,total=hopolrel_total_bug,nomComplet="Insertion des mandats de maniere individuel")
+            print("Insertion des mandats de députés fait")
+            return hopol_total+hopolrel_total
         else:
-            print(f"Erreur dans le traitement de la base de donnée d'import par de table acteur : {collection_list}")
-            return #A completer
+            print(f"Erreur dans le traitement de la base de donnée d'import pas de table acteur : {collection_list}")
+            return 0#A completer
 
 def start_insert_organe():
     with mongoConnection.get_connection() as client:
@@ -35,45 +41,14 @@ def start_insert_organe():
         collection_list = database.list_collection_names()
         if "organe" in collection_list:
             collection = database["organe"]
-            #insert_organes(collection)
-            import_gen(collection,Organe,"insertion_traite",["organe_id"],create_organe)
+            organe_total = get_count_doc_left(collection,"insertion_traite")
+            import_gen(collection,Organe,"insertion_traite",["organe_id"],create_organe,nomComplet="Insertion des organes parlementaire",total=organe_total)
+            print("Insertion des organes parlementaire faites")
+            return organe_total
         else:
-            print(f"Erreur dans le traitement de la base de donnée d'import par de table organe : {collection_list}")
-            return #A completer
+            print(f"Erreur dans le traitement de la base de donnée d'import pas de table organe : {collection_list}")
+            return 0#A completer
 
-def import_gen(collection,model,nameOperation,conflictCol,objCreation):
-    """Une fonction generique pour l'insertion en bulk d'une collection mongodb vers une db postgreSQL"""
-    batch_done=[]
-    query = {f"_traitement.{nameOperation}":{"$exists":False}}
-    #La taille des checkpoints
-    checkpointQuant = 20
-    current = 1
-    #Les deux liste d'objet possible : Partie politique ou autre
-    objAjout=[]
-    #on se connecte a la base de donnée
-    with db_connection.get_session() as session:
-        for data in tqdm(collection.find(query)):
-            #La fonction ajoute les objets dans les bonnes listes
-            objCreation(data,objAjout)
-            currentDate = datetime.now()
-            #On creer l'update qui indique qu'on a traité l'information
-            batch_done.append(UpdateOne(
-            {"_id": data["_id"]},
-            {"$set": {f"_traitement.{nameOperation}": {"date":currentDate}}}))
-
-            #Si on a atteint la taille de batch on écrit dans les deux db
-            if(len(batch_done)>checkpointQuant):
-                do_insert(collection, model, nameOperation, conflictCol, batch_done, current, objAjout, session)
-            current+=1
-        if(len(batch_done)>0):
-            do_insert(collection, model, nameOperation, conflictCol, batch_done, current, objAjout, session)
-
-def do_insert(collection, model, nameOperation, conflictCol, batch_done, current, objAjout, session):
-    upsert_orm(session,model,objAjout,conflictCol)
-    collection.bulk_write(batch_done)
-    objAjout.clear()
-    batch_done.clear()
-    tqdm.write(f"Checkpoint effectuer pour {model.__name__} pour {nameOperation} a la {current} operation")
         
 def create_organe(organeinfo,listajout):
     organe = Organe()
@@ -132,18 +107,7 @@ def create_link_organe(hopol,listajout):
             circons.qualite="élu"
             listajout.append(circons)
 
-def create_activite_vote(vote,listajout):
-    activite = Activite()
-    activite.activite_id=vote["_id"]
-    activite.type="vote"
-    activite.nom = vote["titre"]
-    activite.date=get_date(vote["dateScrutin"])
-    listajout.append(activite)
 
-def create_activite_link(vote,listajout):
-    list_organe = vote["ventilationVotes"]["organe"]["groupes"]["groupe"]
-    for organe in list_organe:
-        listvotant=organe["vote"]["decompteNominatif"]
 
 #Fonction pour reset entierement le traitement sur une collection en particulier
 def clear_procces_full(dbName,collectionName):
@@ -158,8 +122,11 @@ def clear_all_process(dbName):
     clear_procces_full(dbName,"organe")
     clear_procces_full(dbName,"vote")
 
+def full_import():
+    total =0
+    total+=start_insert_organe()
+    total+=start_import_hopol() 
+    return total
 
 if __name__=="__main__":
-    start_insert_organe()
-    start_import_hopol()
-    process_elections()
+    full_import()

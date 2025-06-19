@@ -1,5 +1,8 @@
 import os , sys
 import json
+from tqdm import tqdm
+import requests
+import xmltodict
 
 project_dir = os.path.join(os.path.dirname(__file__), "..")
 sys.path.append(project_dir)
@@ -62,14 +65,34 @@ def import_json_file(file_path,databaseName):
             #On s'attend a un dictionnaire de type : {nomdecollection:{itemdecollection}}
             print("Erreur dans l'insertion des données. Le format n'est pas celui attendu")
 
-def import_json_folder(folderpath,database):
-    list_files = os.listdir(folderpath)
-    for file in list_files:
-        split = file.split(".")
-        filepath = os.path.join(folderpath,file)
-        if len(split)==2 and split[1]=="json":#On import le json
-            import_json_file(filepath,database)
-        elif len(split)==1:#C'est un dossier on doit donc allez plus loin
-            import_json_folder(filepath,database)
-    print(f"{len(list_files)} Fichiers traités")
+def import_json_folder(folderpath,database,description):
+    listefile = []
+    collect_files(folderpath,listefile)
+    for file in tqdm(listefile,desc=description):
+        import_json_file(file,database)
 
+def collect_files(folderpath,filefolder):
+        list_files = os.listdir(folderpath)
+        for file in list_files:
+            split = file.split(".")
+            filepath = os.path.join(folderpath, file)
+            if len(split) == 2 and split[1] == "json":
+                filefolder.append(filepath)
+            elif len(split) == 1 and os.path.isdir(filepath):
+                collect_files(filepath,filefolder)
+        
+def jsondata_from_xml(url):     
+    # Recupere le content
+    response = requests.get(url)
+
+    if response.status_code == 200:
+        xml_content = response.text  # Le text considerer comme de l'xml
+
+        # Convert XML string to Python dictionary
+        data_dict = xmltodict.parse(xml_content)
+
+        clean_data = clean_json(data_dict)
+        return clean_data
+    
+def data_to_json(data_dict):
+    return json.dumps(data_dict, indent=4)

@@ -7,3 +7,4 @@ alembic
 xmltodict
 requests
 tqdm
+beautifulsoup4
