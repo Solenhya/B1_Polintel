@@ -4,18 +4,17 @@ from userManagement.security import get_password_hash , verify_password
 import os
 from fastapi import HTTPException, status
 from exceptions.customExceptions import DatabaseError
-
+from datetime import datetime
 userDBName = os.getenv("MONGO_USER_DB")
 class UserAlreadyExistsException(HTTPException):
     def __init__(self, detail: str = "A user with this username already exists"):
         super().__init__(status_code=status.HTTP_409_CONFLICT, detail=detail)
 
 def sign_user(useName,password,userEmail):
-    user = get_user(useName)
-    if user:
-        raise UserAlreadyExistsException()
+    check_user_similar(useName,userEmail)
     hashedPassword = get_password_hash(password)
-    userInfo = {"username":useName,"email":userEmail,"hashed_password":hashedPassword,"roles":["guest"]}
+    currentdate = datetime.now()
+    userInfo = {"username":useName,"email":userEmail,"hashed_password":hashedPassword,"roles":["guest"],"lastactive":currentdate}
     InsertUser(userInfo)
 
 def get_user(useName):  
@@ -26,8 +25,8 @@ def get_user(useName):
 def check_user_similar(userName,email):
     querry = {
     "$or": [
-        {"fieldA": "A"},
-        {"fieldB": "B"}
+        {"username": userName},
+        {"email": email}
     ]
     }
     found = find_dual("users",userDBName,filter=querry)
@@ -69,3 +68,11 @@ def remove_role_user(userName,role):
         )
         except Exception as e: 
             raise DatabaseError("Remove userRole",userDBName,"users",e)
+        
+def delete_user(username):
+    with get_connection() as client:
+        collection = client[userDBName]["users"]
+        try:
+            collection.delete_one({"username":username})
+        except Exception as e:
+            raise DatabaseError("Remove user",userDBName,"users",e)

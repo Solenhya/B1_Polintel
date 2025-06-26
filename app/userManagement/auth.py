@@ -17,6 +17,7 @@ async def login_for_access_token(username:str,password:str):
         raise HTTPException(status_code=401, detail="Incorrect username or password") 
     # Create and return token
     access_token = create_access_token(data={"sub": username,"roles":user["roles"]})
+    
     return {"access_token": access_token, "token_type": "bearer"}
 
 # Custom exception for when token is missing or invalid

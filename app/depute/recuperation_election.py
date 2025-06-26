@@ -5,7 +5,7 @@ import re
 from db.mongoDB import mongoConnection
 from db.postgreSQL import db_connection
 from sqlalchemy import select
-from db.postgreSQL.models import OrganeRelation , Organe
+from db.postgreSQL.models import OrganeRelation , Organe , Election
 from dotenv import load_dotenv
 load_dotenv()
 dbName = os.getenv("MONGO_DBNAME")
@@ -78,22 +78,25 @@ def process_elections():
         with mongoConnection.get_connection() as client:
             collectionBase = client[dbName]["organe"]
             collectionFinal=client[dbName]["election"]
-            toProcess = select(OrganeRelation,Organe).join(OrganeRelation.organe).where((OrganeRelation.access_id.is_(None)) & (Organe.code_type=="CIRCONSCRIPTION"))
+            toProcess = select(Election,Organe).join(Election.poste).where((Election.gagnant_voix.is_(None)))#On se base sur l'election n'a pas le nombre de voix du gagnant
             results = session.execute(toProcess).all() 
             for row in tqdm(results):
-                organe_relation , organe = row
-                code = organe_relation.organe_id
+                #TODO try and logg
+                election , organe = row
+                code = election.organe_id
                 mongodata = collectionBase.find_one({"_id":code})
                 codeCirconscription = mongodata["numero"]
                 codeDepart = mongodata["lieu"]["departement"]["code"]
                 infoelec = get_formated(get_election(codeDepart,codeCirconscription))
                 if infoelec==None:
-                    print(f"Erreur sur : {organe_relation.organe_id} nom {organe.nom}")
+                    print(f"Erreur sur : {election.organe_id} nom {organe.nom}")
                     continue
                 infoelec = create_elec_obj(infoelec)
-                collectionFinal.insert_one(infoelec)
-                organe_relation.access_id=infoelec["_id"]
+                liste_candidat = infoelec["candidats"]
+                liste_candidat = sort_candidat(liste_candidat)#Recupere la liste des candidats et la trie en fonction des Voix obtenu
+                addto_election(election,liste_candidat,infoelec)
                 session.commit()
+                collectionFinal.update_one({"_id":infoelec["_id"]},{"$set":infoelec})
                 count+=1
     return count
 
@@ -123,6 +126,25 @@ def create_elec_obj(elecInfo):
 
 def debrut_candidats(candidats):
     return list(candidats.values())
+
+def sort_candidat(resulats):
+    sorted_result = sorted(resulats,key=lambda x:x["Voix"],reverse=True)#Sorted trie la liste en prenant l'élement "Voix" du dictionnaire au lieu de l'élément
+    return sorted_result
+
+def addto_election(election:Election,sorted_list_candidats,election_data):
+    election.gagnant_voix=sorted_list_candidats[0]["Voix"]
+    runnerup = sorted_list_candidats[1]
+    election.runnerup_voix=runnerup["Voix"]
+    circons = election_data["Libellé circonscription législative"]
+    departement = election_data["Libellé département"]
+    election.nom_complet = f"{circons} {departement}"
+    first_name = runnerup.get("Prénom candidat","")#Recupere le prénom ou vide si il n'existe pas
+    last_name = runnerup.get("Nom candidat","")
+    nom_complet = f"{first_name.capitalize()} {last_name.capitalize()}".strip()
+    election.runnerup_name=nom_complet
+    election.nbr_inscrit=election_data["Inscrits"]
+    election.nbr_votant=election_data["Votants"]
+    election.nbr_blancs=election_data["Blancs"]
 
 if __name__=="__main__":
     process_elections()

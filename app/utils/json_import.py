@@ -86,6 +86,7 @@ def jsondata_from_xml(url):
     response = requests.get(url)
 
     if response.status_code == 200:
+        response.encoding = 'utf-8'
         xml_content = response.text  # Le text considerer comme de l'xml
 
         # Convert XML string to Python dictionary

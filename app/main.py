@@ -6,7 +6,7 @@ project_dir = os.path.join(os.path.dirname(__file__), "..")
 #sys.path.append(project_dir)
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from routers import admin_user,data_management,users_route
+from routers import admin_user,data_management,users_route,data_access
 from exceptions.customExceptions import NoTokenException,DatabaseError
 from schemas import response_model
 import time
@@ -20,21 +20,20 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="API Polintel",
-    description="Une API qui expose de la donnée sur les hommes politiques",
-    version="1.0.0")
+app = FastAPI(title="API Polintel")
 app.include_router(users_route.router,tags=["users"])
-app.include_router(data_management.router,tags=["data"])
+app.include_router(data_management.router,tags=["data-management"])
 app.include_router(admin_user.router,tags=["admin_user"])
-
+app.include_router(data_access.router,tags=["data"])
 
 from fastapi import Security
 from fastapi.security.api_key import APIKeyHeader
 from fastapi.openapi.utils import get_openapi
 
+#L'implementation de la sécurité avec le header "token" n'est pas pris en compte par fastAPI il faut donc generer soi-meme l'openapi
+#qui permets de s'autentifier au niveau du swagger
 TOKEN_NAME = "token"
 api_key_header = APIKeyHeader(name=TOKEN_NAME)
-
 
 def custom_openapi():
     if app.openapi_schema:
@@ -45,7 +44,7 @@ def custom_openapi():
         description="Une API qui expose de la donnée sur les hommes politiques",
         routes=app.routes,
     )
-    # Add the security scheme
+    # On rajoute le schema de sécurité "token"
     openapi_schema["components"]["securitySchemes"] = {
         "TokenAuth": {
             "type": "apiKey",
@@ -53,7 +52,7 @@ def custom_openapi():
             "name": TOKEN_NAME,
         }
     }
-    # Add security requirement globally
+    # On rajoute de maniere générale l'icone d'identification meme si elle n'est pas necessaire. Ce n'est pas un blocage
     for path in openapi_schema["paths"].values():
         for operation in path.values():
             operation["security"] = [{"TokenAuth": []}]

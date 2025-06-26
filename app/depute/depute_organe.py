@@ -3,8 +3,9 @@ project_dir = os.path.join(os.path.dirname(__file__), "..")
 sys.path.append(project_dir)
 from dotenv import load_dotenv
 load_dotenv()
+from tqdm import tqdm
 from db.mongoDB import mongoConnection
-from db.postgreSQL import HommePolitique , Organe,OrganeRelation 
+from db.postgreSQL import HommePolitique , Organe,OrganeRelation,Election
 from utils.date_utils import get_date
 from utils.db_import import import_gen , get_count_doc_left , import_gen_single
 import logging
@@ -26,7 +27,7 @@ def start_import_hopol():
             print("Insertion des députés faites")
 
             hopolrel_total = get_count_doc_left(collection,"relation_organe")#Pour l'instant liste uniquement les documents et pas les mandats individuel
-            import_gen(collection,OrganeRelation,"relation_organe",["organe_id","hopol_id","qualite","date_debut"],create_link_organe,nomComplet="Insertion des mandats",total=hopolrel_total,chunckSize=1)
+            #import_gen(collection,OrganeRelation,"relation_organe",["organe_id","hopol_id","qualite","date_debut"],create_link_organe,nomComplet="Insertion des mandats",total=hopolrel_total,chunckSize=1)
             hopolrel_total_bug = get_count_doc_left(collection,"relation_organe")#Pour l'instant liste uniquement les documents et pas les mandats individuel
             import_gen_single(collection,"relation_organe",create_link_organe,total=hopolrel_total_bug,nomComplet="Insertion des mandats de maniere individuel")
             print("Insertion des mandats de députés fait")
@@ -78,35 +79,33 @@ def create_link_organe(hopol,listajout):
         relation = OrganeRelation()
         relation.hopol_id=hopol["_id"]
         if relation.hopol_id==None:
-            print(f"Erreur sur la creation de {mandat} id hopol est vide: {hopol["_id"]}")
+            tqdm.write(f"Erreur sur la creation de {mandat} id hopol est vide: {hopol["_id"]}")
             return
         relation.organe_id=mandat["organes"]["organeRef"]
         if relation.organe_id==None:
-            print(f"Erreur sur la creation de {mandat} id organe est vide")
+            tqdm.write(f"Erreur sur la creation de {mandat} id organe est vide")
             return
         relation.date_debut=get_date(mandat["dateDebut"])
         if relation.date_debut==None:
-            print(f"Erreur sur la creation de {mandat} erreur sur la date de début est vide")
+            tqdm.write(f"Erreur sur la creation de {mandat} erreur sur la date de début est vide")
             return
         if mandat["dateFin"]!=None:
             relation.date_fin=get_date(mandat["dateFin"])
         relation.qualite = mandat["infosQualite"]["codeQualite"]
         if mandat["infosQualite"]["codeQualite"]==None:
-            print(f"Erreur : {relation.hopol_id} avec {relation.organe_id}")
+            tqdm.write(f"Erreur : {relation.hopol_id} avec {relation.organe_id}")
             relation.qualite="Inconnue"
-        listajout.append(relation)
+
         code = mandat["typeOrgane"]
         if code =="ASSEMBLEE":
-            circons = OrganeRelation()
-            circons.hopol_id=hopol["_id"]
-            circons.date_debut=get_date(mandat["dateDebut"])
-            if mandat["dateFin"]!=None:
-                circons.date_fin=get_date(mandat["dateFin"])
-            election = mandat["election"]
-            circons.organe_id=election["refCirconscription"]
-            circons.qualite="élu"
-            listajout.append(circons)
-
+            relation.qualite="élu"
+            election = Election()
+            election.gagnant_id=hopol["_id"]
+            election_data = mandat["election"]
+            election.organe_id=election_data["refCirconscription"]
+            election.date_election=get_date(mandat["dateDebut"])
+            listajout.append(election)
+        listajout.append(relation)
 
 
 #Fonction pour reset entierement le traitement sur une collection en particulier
