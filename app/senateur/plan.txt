@@ -1,0 +1,11 @@
+PLan : recuperation sen et elusen avec : select * from elusen join sen on elusen.senmat = sen.senmat where sen.etasencod = 'ACTIF'; 
+On a aussi le lien hatvp
+éventuellement activité de loi
+recuperation des votes sur l'autre dump https://data.senat.fr/dosleg/ 
+Posibilité de faire du scrapping. https://www.senat.fr/scrutin-public/scr2024.html
+"select sen.senprenomuse,sen.sennomuse,Count(*) from sen where sen.etasencod = 'ACTIF' GROUP BY senprenomuse, sennomuse
+HAVING COUNT(*) > 1;" Permet de vérifier si il n'y a pas de doublons dans les prénoms
+
+Leurs systeme interactif est beaucoup plus fonctionnel que leurs sql a :https://www.senat.fr/dossier-legislatif/ppl24-343.html par exemple. On peut récuperer des info json sur les scrutins avec des appel direct a une api : https://www.senat.fr/scrutin-public/2024/scr2024-239.json
+
+On peut récuperer dans le dumps loi "signet" et faire un lien vers le site qui a toute les info a https://www.senat.fr/dossier-legislatif/ppl23-433.html
