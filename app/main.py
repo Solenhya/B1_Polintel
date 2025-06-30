@@ -73,6 +73,15 @@ async def health():
 @app.get("/test",tags=["check"])
 async def check():
     reponse = response_model.success_response(message="Test")
+    data = {"field a":1}
+    return reponse
+
+from senateur.insertion import insert_hopol_decla
+
+@app.post("/command",tags=["temp"])
+async def temp():
+    insert_hopol_decla()
+    reponse = response_model.success_response(message="Test")
     return reponse
 
 @app.middleware("http")

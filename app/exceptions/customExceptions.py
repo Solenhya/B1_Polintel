@@ -26,3 +26,10 @@ class IncorrectInputException(Exception):
         self.origne = origine
         logger.info(self.message)
         super().__init__(self.message)
+
+class ScrappingFormatException(Exception):
+    def __init__(self,origine,message=None):
+        self.message=message if message else f"Erreur dans la récuperation de données via internet le format n'était pas celui attendu"
+        self.origne = origine
+        logger.info(f"{self.message} a {origine}")
+        super().__init__(self.message)

@@ -3,6 +3,7 @@ from userManagement import userAccess
 from userManagement.dependencies import require_roles_any
 from schemas import response_model
 from depute import assemble_file_recuperation,recuperation_election,depute_organe,vote_depute,dec_interet_patri,clean_organe_date
+from senateur import import_dump,insertion
 router = APIRouter(dependencies=[Depends(require_roles_any(["admin"]))])
 
 @router.post("/depute_extract_data")
@@ -45,4 +46,13 @@ async def clean_organe(request:Request):
         response = response_model.success_response(message=f"Traitement du remplissage des dates de début d'organe vide fait {success}success / {total} a traité")
     else:
         response = response_model.error_response(message=f"Echec dans le remplissage des dates de début d'organe. Aucun entrée n'a pu etre rempli sur {total}")
+    return response
+
+@router.post("/insert_senateur")
+async def endpoint_insert_senateur(request:Request):
+    success,total = insertion.insert_hopol_decla()
+    if(success>0 or total==0):
+        response = response_model.success_response(message=f"Insertion des sénateurs fait {success}success / {total} a traité")
+    else:
+        response = response_model.error_response(message=f"Echec dans l'insertion des sénateur {total}")
     return response
